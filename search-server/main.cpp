@@ -79,11 +79,12 @@ public:
     void AddDocument(int document_id, const string& document) 
     {
         const vector<string> words = SplitIntoWordsNoStop(document);
-        const double n = words.size();
+        const double vector_size = words.size();
+        double tf = 1 / vector_size; // исправил имя функции
 
         for (const string& word : words)
         {
-            documents_[word][document_id] += 1 / n;
+            documents_[word][document_id] += tf; // убрал подсчет 1/size внутри цикла
         }
         document_count_++;
     }
@@ -145,6 +146,11 @@ private:
         return query_words;
     }
 
+    double IDF(const string word) const // вевел расчет IDF в отдельную функцию
+    {
+        return log(static_cast<double>(document_count_) / documents_.at(word).size());
+    }
+
     vector<Document> FindAllDocuments(const Query& query) const 
     {
         vector<Document> matched_documents;
@@ -153,7 +159,7 @@ private:
         {
             if (documents_.count(word) > 0)
             {
-                const double idf = log(static_cast<double>(document_count_) / documents_.at(word).size());
+                double idf = IDF(word);
                 for (auto& [id, tf] : documents_.at(word))
                 {
                     document_to_relevance[id] += tf * idf;
