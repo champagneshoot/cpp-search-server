@@ -2,6 +2,7 @@
 #include <cmath>
 #include <iostream>
 #include <map>
+#include<numeric>
 #include <optional>
 #include <stdexcept>
 #include <set>
@@ -12,6 +13,7 @@
 using namespace std;
 
 const int MAX_RESULT_DOCUMENT_COUNT = 5;
+const double ALMOST_ZERO = 1e-6;
 
 string ReadLine() {
     string s;
@@ -89,10 +91,15 @@ static bool IsValidWord(const string& word)
 
 class SearchServer {
 public:
+
     template <typename StringContainer>
     explicit SearchServer(const StringContainer& stop_words) : stop_words_(MakeUniqueNonEmptyStrings(stop_words)) { for (auto word : stop_words) { IsValidWord(word); } }
-    explicit SearchServer(const string& stop_words_text) : SearchServer(SplitIntoWords(stop_words_text)) { IsValidWord(stop_words_text); }  
-    void AddDocument(int document_id, const string& document, DocumentStatus status, const vector<int>& ratings)
+
+    explicit SearchServer(const string& stop_words_text) : SearchServer(SplitIntoWords(stop_words_text)) { IsValidWord(stop_words_text); } 
+
+
+    void AddDocument(int document_id, const string& document, DocumentStatus status,
+        const vector<int>& ratings)
     {
         if (document_id < 0)
             throw invalid_argument("Error in function AddDocument! document_id must be greater than 0");
@@ -139,12 +146,10 @@ public:
 
         sort(matched_documents.begin(), matched_documents.end(),
             [](const Document& lhs, const Document& rhs) {
-                if (abs(lhs.relevance - rhs.relevance) < 1e-6) {
+                if (abs(lhs.relevance - rhs.relevance) < ALMOST_ZERO) {
                     return lhs.rating > rhs.rating;
                 }
-                else {
-                    return lhs.relevance > rhs.relevance;
-                }
+                return lhs.relevance > rhs.relevance;
             });
         if (matched_documents.size() > MAX_RESULT_DOCUMENT_COUNT) {
             matched_documents.resize(MAX_RESULT_DOCUMENT_COUNT);
@@ -171,7 +176,7 @@ public:
 
     tuple<vector<string>, DocumentStatus> MatchDocument(const string& raw_query, int document_id) const
     {
-        //<tuple<vector<string>, DocumentStatus>> result;
+        
         const Query query = ParseQuery(raw_query);
         vector<string> matched_words;
         for (const string& word : query.plus_words)
@@ -252,10 +257,7 @@ private:
         if (ratings.empty()) {
             return 0;
         }
-        int rating_sum = 0;
-        for (const int rating : ratings) {
-            rating_sum += rating;
-        }
+        int rating_sum = accumulate(ratings.begin(), ratings.end(),0);
         return rating_sum / static_cast<int>(ratings.size());
     }
 
@@ -267,7 +269,6 @@ private:
 
     QueryWord ParseQueryWord(string text) const {
         bool is_minus = false;
-        // Word shouldn't be empty
         if (text[0] == '-') {
             is_minus = true;
             text = text.substr(1);
@@ -299,7 +300,7 @@ private:
         return query;
     }
 
-    // Existence required
+
     double ComputeWordInverseDocumentFreq(const string& word) const {
         return log(GetDocumentCount() * 1.0 / word_to_document_freqs_.at(word).size());
     }
@@ -351,6 +352,7 @@ int main() {
     try {
         SearchServer search_server("and with for"s);
 
+        
         search_server.AddDocument(1, "funny pet and funny frog"s, DocumentStatus::ACTUAL, { 7, 2, 7 });
         search_server.AddDocument(2, "funny pet with curly hair"s, DocumentStatus::ACTUAL, { 1, 2, 3 });
         search_server.AddDocument(3, "funny pet with funny sweet dog"s, DocumentStatus::ACTUAL, { 1, 3, 1 });
@@ -358,6 +360,7 @@ int main() {
         search_server.AddDocument(5, "funny frog and funny hamster"s, DocumentStatus::ACTUAL, { 1, 1, 1 });
         search_server.AddDocument(6, "funny pet and not very funny parrot"s, DocumentStatus::ACTUAL, { 1, 1, 2 });
 
+        
         cout << "Search \"funny pet\""s << endl;
         for (const auto& document : search_server.FindTopDocuments("funny pet"s)) {
             PrintDocument(document);
@@ -385,9 +388,11 @@ int main() {
         }
         cout << endl;
 
+        
         cout << "Document ID at index 2: "s << search_server.GetDocumentId(2) << endl;
         cout << "Document ID at index 5: "s << search_server.GetDocumentId(5) << endl;
 
+        
         cout << "Matched words in document 2 for query \"funny pet with curly hair\""s << endl;
         auto [words, status] = search_server.MatchDocument("funny pet with curly hair"s, 2);
         cout << "Document status: "s;
@@ -420,6 +425,7 @@ int main() {
             cout << "Caught out_of_range exception: "s << e.what() << endl;
         }
 
+        
         cout << "Trying to add document with invalid ID..."s << endl;
         try {
             search_server.AddDocument(-1, "invalid document"s, DocumentStatus::ACTUAL, {});
@@ -428,6 +434,7 @@ int main() {
             cout << "Caught invalid_argument exception: "s << e.what() << endl;
         }
 
+        
         cout << "Trying to search with empty query..."s << endl;
         try {
             search_server.FindTopDocuments("");
