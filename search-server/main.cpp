@@ -95,7 +95,7 @@ public:
     template <typename StringContainer>
     explicit SearchServer(const StringContainer& stop_words) : stop_words_(MakeUniqueNonEmptyStrings(stop_words)) { for (auto word : stop_words) { IsValidWord(word); } }
 
-    explicit SearchServer(const string& stop_words_text) : SearchServer(SplitIntoWords(stop_words_text)) { IsValidWord(stop_words_text); } 
+    explicit SearchServer(const string& stop_words_text) : SearchServer(SplitIntoWords(stop_words_text)) {} 
 
 
     void AddDocument(int document_id, const string& document, DocumentStatus status,
@@ -109,7 +109,6 @@ public:
         const double inv_word_count = 1.0 / words.size();
         for (const string& word : words)
         {
-            IsValidWord(word);
             word_to_document_freqs_[word][document_id] += inv_word_count;
         }
         documents_.emplace(document_id, DocumentData{ ComputeAverageRating(ratings), status });
@@ -121,27 +120,7 @@ public:
         if(raw_query.empty())
             throw invalid_argument("Error in function FindTopDocuments! The text is missing");
         const Query query = ParseQuery(raw_query);
-        for (const auto& word : query.plus_words)
-        {
-            if (word.empty())
-            {
-                cout << "Error in function FindTopDocuments!The text is missing";
-                throw invalid_argument("Error in function FindTopDocuments! The text is missing");
-            }
-            IsValidWord(word);
-        }
 
-        for (const string& word : query.minus_words) {
-            if (word.empty())
-            {
-                throw invalid_argument("Error in function FindTopDocuments! The text is missing");
-            }
-            IsValidWord(word);
-            if (word[0] == '-')
-            {
-                throw invalid_argument("Error in function FindTopDocuments! word[0] == '-' ");
-            }
-        }
         auto matched_documents = FindAllDocuments(query, document_predicate);
 
         sort(matched_documents.begin(), matched_documents.end(),
@@ -176,18 +155,10 @@ public:
 
     tuple<vector<string>, DocumentStatus> MatchDocument(const string& raw_query, int document_id) const
     {
-        
         const Query query = ParseQuery(raw_query);
         vector<string> matched_words;
         for (const string& word : query.plus_words)
         {
-            if (word.empty())
-            {
-                throw invalid_argument("Error in function MatchDocument! The text is missing");
-            }
-
-            IsValidWord(word);
-
             if (word_to_document_freqs_.count(word) == 0)
             {
                 continue;
@@ -199,11 +170,7 @@ public:
         }
         for (const string& word : query.minus_words)
         {
-            if (word.empty())
-                throw invalid_argument("Error in function MatchDocument! The text is missing");
-            IsValidWord(word);
-            if (word[0] == '-')
-                throw invalid_argument("Error in function MatchDocument! word[0]=='-' ");
+            
             if (word_to_document_freqs_.count(word) == 0)
             {
                 continue;
@@ -228,6 +195,7 @@ public:
         throw out_of_range("Error in function GetDocumentId! index<0 or index>document_count");
     }
 private:
+    
     struct DocumentData
     {
         int rating;
@@ -246,7 +214,8 @@ private:
     vector<string> SplitIntoWordsNoStop(const string& text) const {
         vector<string> words;
         for (const string& word : SplitIntoWords(text)) {
-            if (!IsStopWord(word)) {
+            if (!IsStopWord(word) and IsValidWord(word)) 
+            {
                 words.push_back(word);
             }
         }
@@ -269,9 +238,21 @@ private:
 
     QueryWord ParseQueryWord(string text) const {
         bool is_minus = false;
-        if (text[0] == '-') {
+        if (text.empty())
+        {
+            throw invalid_argument("Error! The text is missing");
+        }
+        IsValidWord(text);
+        if (text[0] == '-') 
+        {
             is_minus = true;
             text = text.substr(1);
+            if (text.empty())
+            {
+                throw invalid_argument("Error! The text is missing");
+            }
+            if(text[0]=='-')
+                throw invalid_argument("Error! word[0]=='-' ");
         }
         return { text, is_minus, IsStopWord(text) };
     }
@@ -353,12 +334,12 @@ int main() {
         SearchServer search_server("and with for"s);
 
         
-        search_server.AddDocument(1, "funny pet and funny frog"s, DocumentStatus::ACTUAL, { 7, 2, 7 });
-        search_server.AddDocument(2, "funny pet with curly hair"s, DocumentStatus::ACTUAL, { 1, 2, 3 });
-        search_server.AddDocument(3, "funny pet with funny sweet dog"s, DocumentStatus::ACTUAL, { 1, 3, 1 });
-        search_server.AddDocument(4, "pet snake"s, DocumentStatus::BANNED, { 7, 1, 7 });
-        search_server.AddDocument(5, "funny frog and funny hamster"s, DocumentStatus::ACTUAL, { 1, 1, 1 });
-        search_server.AddDocument(6, "funny pet and not very funny parrot"s, DocumentStatus::ACTUAL, { 1, 1, 2 });
+        search_server.AddDocument(6, "funny pet and funny frog"s, DocumentStatus::ACTUAL, { 7, 2, 7 });
+        search_server.AddDocument(5, "funny pet with curly hair"s, DocumentStatus::ACTUAL, { 1, 2, 3 });
+        search_server.AddDocument(4, "funny pet with funny sweet dog"s, DocumentStatus::ACTUAL, { 1, 3, 1 });
+        search_server.AddDocument(10, "pet snake"s, DocumentStatus::BANNED, { 7, 1, 7 });
+        search_server.AddDocument(2, "funny frog and funny hamster"s, DocumentStatus::ACTUAL, { 1, 1, 1 });
+        search_server.AddDocument(1, "funny pet and not very funny parrot"s, DocumentStatus::ACTUAL, { 1, 1, 2 });
 
         
         cout << "Search \"funny pet\""s << endl;
@@ -388,8 +369,11 @@ int main() {
         }
         cout << endl;
 
-        
+        cout << "Document ID at index 0: "s << search_server.GetDocumentId(0) << endl;
+        cout << "Document ID at index 1: "s << search_server.GetDocumentId(1) << endl;
         cout << "Document ID at index 2: "s << search_server.GetDocumentId(2) << endl;
+        cout << "Document ID at index 3: "s << search_server.GetDocumentId(3) << endl;
+        cout << "Document ID at index 4: "s << search_server.GetDocumentId(4) << endl;
         cout << "Document ID at index 5: "s << search_server.GetDocumentId(5) << endl;
 
         
