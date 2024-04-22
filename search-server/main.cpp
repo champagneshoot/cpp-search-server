@@ -105,6 +105,9 @@ public:
             throw invalid_argument("Error in function AddDocument! document_id must be greater than 0");
         if (documents_.count(document_id) != 0)
             throw invalid_argument("Error in function AddDocument! this id has been added already");
+
+        for_index.push_back(document_id);//вектор для метода GetDocumentId;
+
         const vector<string> words = SplitIntoWordsNoStop(document);
         const double inv_word_count = 1.0 / words.size();
         for (const string& word : words)
@@ -186,15 +189,19 @@ public:
     }
     int GetDocumentId(int index) const
     {
-        if (index >= 0 and index <= GetDocumentCount())
+        if (index >= 0 and index < GetDocumentCount())
         {
-            auto it = documents_.begin();
+            /*auto it = documents_.begin();
             advance(it, index);
-            return it->first;
+            return it->first;*/
+
+            return for_index[index];//возвращаем id по порядковому номеру
         }
         throw out_of_range("Error in function GetDocumentId! index<0 or index>document_count");
     }
 private:
+
+    vector<int> for_index;//для метода GetDocumentId
     
     struct DocumentData
     {
@@ -238,10 +245,6 @@ private:
 
     QueryWord ParseQueryWord(string text) const {
         bool is_minus = false;
-        if (text.empty())
-        {
-            throw invalid_argument("Error! The text is missing");
-        }
         IsValidWord(text);
         if (text[0] == '-') 
         {
@@ -377,7 +380,7 @@ int main() {
         cout << "Document ID at index 5: "s << search_server.GetDocumentId(5) << endl;
 
         
-        cout << "Matched words in document 2 for query \"funny pet with curly hair\""s << endl;
+        cout << "\nMatched words in document 2 for query \"funny pet with curly hair\""s << endl;
         auto [words, status] = search_server.MatchDocument("funny pet with curly hair"s, 2);
         cout << "Document status: "s;
         switch (status) {
@@ -433,3 +436,4 @@ int main() {
 
     return 0;
 }
+
