@@ -1,4 +1,5 @@
 #include"search_server.h"
+#include <numeric>
 using namespace std; 
 //SearchServer::SearchServer(const string& stop_words_text): SearchServer( SplitIntoWords(stop_words_text)){}
 void SearchServer::AddDocument(int document_id, const string& document, DocumentStatus status,
@@ -81,9 +82,7 @@ int SearchServer::ComputeAverageRating(const vector<int>& ratings)
         return 0;
     }
     int rating_sum = 0;
-    for (const int rating : ratings) {
-        rating_sum += rating;
-    }
+    rating_sum = accumulate(ratings.begin(), ratings.end(), 0);
     return rating_sum / static_cast<int>(ratings.size());
 }
 SearchServer::QueryWord SearchServer::ParseQueryWord(const string& text) const 
@@ -122,4 +121,6 @@ double SearchServer::ComputeWordInverseDocumentFreq(const string& word) const
 {
     return log(GetDocumentCount() * 1.0 / word_to_document_freqs_.at(word).size());
 }
+
+
 
